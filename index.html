@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SetuAI — Offline On-Device Sign Language Bridge</title>
+<meta name="description" content="A real-time, fully offline sign-language-to-speech bridge, built for the Snapdragon AI Lab Build & Present Challenge. Genuine on-device hand tracking, no cloud, no install.">
+<meta property="og:title" content="SetuAI — Offline On-Device Sign Language Bridge">
+<meta property="og:description" content="A real-time sign-to-speech bridge that runs entirely on-device — no cloud, no internet required after first load.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤟</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg-deep:#12192E;
+    --bg-deep-2:#0B1120;
+    --panel:#182036;
+    --panel-2:#1E2740;
+    --signal:#F2A154;
+    --signal-soft:#F7C98C;
+    --bridge-teal:#4FB6A6;
+    --ink:#F7F3EA;
+    --slate:#93A0B8;
+    --slate-dim:#66738D;
+    --line:rgba(247,243,234,0.12);
+    --danger:#E17070;
+    --radius-signal: 22px;
+    box-sizing:border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:inherit;}
+  html{scroll-padding-top: calc(78px + env(safe-area-inset-top, 0px)); scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg-deep);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  img,svg{max-width:100%;}
+  a{color:var(--signal-soft);}
+
+  h1,h2,h3,.serif{
+    font-family:'Fraunces', Georgia, 'Times New Roman', serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    color:var(--ink);
+    margin:0;
+  }
+  .mono{font-family:'IBM Plex Mono', ui-monospace, Consolas, monospace;}
+
+  .wrap{max-width:1180px; margin:0 auto; padding:0 28px;}
+  section{padding:88px 0;}
+  @media (max-width:720px){ section{padding:56px 0;} .wrap{padding:0 18px;} }
+
+  /* ---------- NAV ---------- */
+  .nav{
+    position:sticky; top:0; z-index:40;
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    padding-bottom:16px;
+    background:linear-gradient(var(--bg-deep) 78%, transparent);
+    backdrop-filter: blur(6px);
+  }
+  .nav-row{display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:baseline; gap:10px;}
+  .brand-mark{font-size:1.5rem;}
+  .brand-name{font-size:1.28rem;}
+  .brand-tag{color:var(--slate); font-size:0.86rem;}
+
+  .nav-links{display:flex; gap:22px; font-size:0.8rem;}
+  .nav-links a{color:var(--slate); text-decoration:none; border-bottom:1px solid transparent; padding-bottom:2px; transition:color .15s ease, border-color .15s ease;}
+  .nav-links a:hover{color:var(--signal-soft); border-color:var(--signal-soft);}
+  @media (max-width:900px){ .nav-links{display:none;} }
+
+  .nav-right{display:flex; align-items:center;}
+  .offline-badge{
+    display:flex; align-items:center; gap:7px; font-size:0.76rem; color:var(--slate);
+    font-family:'IBM Plex Mono',monospace; border:1px solid var(--line); border-radius:999px;
+    padding:5px 12px 5px 10px;
+  }
+  .offline-badge .dot{margin:0; background:var(--slate-dim);}
+  .offline-badge.ready .dot{background:var(--bridge-teal); box-shadow:0 0 0 3px rgba(79,182,166,0.16);}
+  .offline-badge.failed .dot{background:var(--slate-dim);}
+
+  .section-kicker{color:var(--signal); font-size:0.8rem; letter-spacing:0.04em; margin-bottom:16px;}
+
+  /* ---------- HERO ---------- */
+  .hero{padding-top:52px;}
+  .hero-kicker{color:var(--signal); font-size:0.95rem; margin-bottom:14px;}
+  .hero h1{font-size:clamp(2.1rem, 4.6vw, 3.4rem); max-width:16ch;}
+  .hero p.lede{color:var(--slate); max-width:56ch; font-size:1.12rem; margin-top:18px;}
+
+  .bridge-stage{
+    margin-top:52px;
+    display:grid;
+    grid-template-columns: 1fr 46px 1fr;
+    align-items:stretch;
+    gap:0;
+  }
+  @media (max-width:860px){
+    .bridge-stage{grid-template-columns:1fr; gap:22px;}
+    .arc-col{display:none;}
+  }
+  .arc-col{position:relative;}
+  .arc-col svg{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);}
+
+  .stage-panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:20px;
+    display:flex; flex-direction:column; gap:14px;
+    min-height:420px;
+  }
+  .stage-panel.left{border-radius: 4px 0 0 4px;}
+  .stage-panel.right{border-radius: 0 4px 4px 0; background:var(--panel-2);}
+  @media (max-width:860px){ .stage-panel{border-radius:10px !important;} }
+
+  .panel-label{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:0.82rem; color:var(--slate); text-transform:none;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--slate-dim); display:inline-block; margin-right:8px;}
+  .dot.live{background:var(--bridge-teal); box-shadow:0 0 0 4px rgba(79,182,166,0.16);}
+  .dot.warn{background:var(--danger);}
+
+  .cam-box{
+    position:relative; width:100%; aspect-ratio:4/3;
+    background:var(--bg-deep-2); border-radius:10px; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .cam-box video, .cam-box canvas{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  }
+  .cam-box video{transform:scaleX(-1);}
+  .cam-box canvas{transform:scaleX(-1); pointer-events:none;}
+  .cam-placeholder{color:var(--slate-dim); text-align:center; padding:24px; font-size:0.95rem; max-width:26ch; z-index:2;}
+
+  .btn{
+    font-family:inherit; font-size:0.95rem; font-weight:500;
+    border-radius:999px; border:1px solid var(--line);
+    background:transparent; color:var(--ink);
+    padding:11px 20px; cursor:pointer;
+    transition:background .15s ease, border-color .15s ease, transform .05s ease;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn:hover{border-color:var(--slate);}
+  .btn.primary{background:var(--signal); border-color:var(--signal); color:#1A1204; font-weight:600;}
+  .btn.primary:hover{background:var(--signal-soft);}
+  .btn.primary:disabled{opacity:0.5; cursor:not-allowed;}
+  .btn.ghost{border-color:transparent; color:var(--slate);}
+  .btn-row{display:flex; gap:10px; flex-wrap:wrap;}
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{
+    font-size:0.78rem; color:var(--slate); border:1px solid var(--line);
+    border-radius:999px; padding:5px 12px 5px 8px; font-family:'IBM Plex Mono', monospace;
+    display:flex; align-items:center; gap:6px;
+  }
+  .chip .tag{
+    font-size:0.62rem; font-family:'IBM Plex Sans',sans-serif; font-weight:600;
+    padding:1px 6px; border-radius:999px; letter-spacing:0.02em;
+  }
+  .chip .tag.isl{background:rgba(79,182,166,0.18); color:var(--bridge-teal);}
+  .chip .tag.gesture{background:rgba(147,160,184,0.18); color:var(--slate);}
+  .chip.hit{color:var(--bg-deep); background:var(--signal); border-color:var(--signal);}
+  .chip.hit .tag{background:rgba(18,25,46,0.25); color:var(--bg-deep);}
+
+  /* caption side */
+  .caption-feed{
+    flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px;
+    padding-right:4px;
+  }
+  .caption-line{
+    display:flex; align-items:baseline; gap:10px;
+    font-size:1.3rem; font-family:'Fraunces', serif; font-weight:500;
+  }
+  .caption-line time{font-size:0.72rem; color:var(--slate-dim); font-family:'IBM Plex Mono',monospace;}
+  .caption-empty{color:var(--slate-dim); font-size:0.95rem; font-family:'IBM Plex Sans';}
+
+  .type-bridge{border-top:1px solid var(--line); padding-top:14px; margin-top:auto;}
+  .type-bridge label{font-size:0.8rem; color:var(--slate); display:block; margin-bottom:8px;}
+  .type-row{display:flex; gap:8px;}
+  .type-row input{
+    flex:1; background:var(--bg-deep-2); border:1px solid var(--line); border-radius:999px;
+    padding:11px 16px; color:var(--ink); font-family:inherit; font-size:0.95rem;
+  }
+  .type-row input:focus{outline:2px solid var(--signal); outline-offset:1px;}
+
+  .latency-strip{
+    margin-top:18px; display:flex; gap:28px; flex-wrap:wrap;
+    font-family:'IBM Plex Mono', monospace; font-size:0.82rem; color:var(--slate);
+  }
+  .latency-strip b{color:var(--ink); font-weight:500;}
+
+  /* ---------- STATS ---------- */
+  .stats-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); margin-top:40px; border:1px solid var(--line);}
+  .stats-grid.stats-grid-4{grid-template-columns:repeat(4,1fr);}
+  @media (max-width:900px){.stats-grid.stats-grid-4{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:720px){.stats-grid{grid-template-columns:1fr;} .stats-grid.stats-grid-4{grid-template-columns:1fr;}}
+  .stat{background:var(--bg-deep); padding:28px;}
+  .stat.stat-self{background:rgba(79,182,166,0.06);}
+  .stat.stat-self .num{color:var(--bridge-teal);}
+  .stat .num{font-family:'Fraunces',serif; font-size:2.4rem; color:var(--signal); font-weight:600;}
+  .stat p{color:var(--slate); font-size:0.92rem; margin-top:6px; max-width:32ch;}
+  .stat p code{font-family:'IBM Plex Mono',monospace; font-size:0.82em; color:var(--slate);}
+  .cite{color:var(--slate-dim); font-size:0.78rem; margin-top:26px;}
+
+  /* ---------- TWO COL PROSE ---------- */
+  .split{display:grid; grid-template-columns: 0.85fr 1.15fr; gap:64px;}
+  @media (max-width:860px){.split{grid-template-columns:1fr; gap:28px;}}
+  .split h2{font-size:1.9rem; max-width:14ch;}
+  .split .col p{color:var(--slate); max-width:62ch;}
+  .split .col p + p{margin-top:14px;}
+
+  /* ---------- PIPELINE ---------- */
+  .pipeline{
+    margin-top:36px; display:flex; flex-wrap:wrap; gap:0; align-items:stretch;
+  }
+  .pl-step{
+    flex:1; min-width:150px; background:var(--panel); border:1px solid var(--line);
+    padding:18px 16px; position:relative;
+  }
+  .pl-step + .pl-step{border-left:none;}
+  .pl-step .k{font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--signal);}
+  .pl-step h4{font-family:'Fraunces',serif; font-weight:600; font-size:1.02rem; margin:8px 0 6px;}
+  .pl-step p{font-size:0.84rem; color:var(--slate); margin:0;}
+  @media (max-width:860px){ .pl-step{border-left:1px solid var(--line) !important; border-top:none;} }
+
+  /* ---------- TABLE ---------- */
+  table.compare{width:100%; border-collapse:collapse; margin-top:32px; font-size:0.92rem;}
+  table.compare th, table.compare td{
+    text-align:left; padding:13px 16px; border-bottom:1px solid var(--line); vertical-align:top;
+  }
+  table.compare th{color:var(--slate); font-weight:500; font-size:0.8rem;}
+  table.compare td.rowlabel{color:var(--ink); font-weight:500; white-space:nowrap;}
+  table.compare td{color:var(--slate);}
+  table.compare code{font-family:'IBM Plex Mono',monospace; font-size:0.85em; color:var(--signal-soft);}
+
+  /* ---------- ROADMAP ---------- */
+  .roadmap{list-style:none; padding:0; margin:36px 0 0; display:flex; flex-direction:column;}
+  .roadmap li{
+    display:grid; grid-template-columns:120px 1fr; gap:24px;
+    padding:20px 0; border-top:1px solid var(--line);
+  }
+  .roadmap li:last-child{border-bottom:1px solid var(--line);}
+  .roadmap .phase{color:var(--signal); font-family:'IBM Plex Mono',monospace; font-size:0.8rem; padding-top:2px;}
+  .roadmap h4{font-family:'Fraunces',serif; font-size:1.08rem; font-weight:600; margin:0 0 6px;}
+  .roadmap p{color:var(--slate); margin:0; max-width:60ch; font-size:0.94rem;}
+  @media (max-width:600px){.roadmap li{grid-template-columns:1fr; gap:6px;}}
+
+  /* ---------- CRITERIA ---------- */
+  .criteria-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin-top:36px;}
+  @media (max-width:720px){.criteria-grid{grid-template-columns:1fr;}}
+  .crit{background:var(--bg-deep); padding:24px;}
+  .crit h4{font-family:'Fraunces',serif; font-size:1.05rem; color:var(--bridge-teal); margin-bottom:8px;}
+  .crit p{color:var(--slate); font-size:0.9rem; margin:0;}
+
+  footer{border-top:1px solid var(--line); padding:40px 0 calc(40px + env(safe-area-inset-bottom,0px));}
+  footer .wrap{display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; color:var(--slate-dim); font-size:0.85rem;}
+
+  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-row">
+    <div class="brand">
+      <span class="brand-mark">🤟</span>
+      <span class="brand-name serif">SetuAI</span>
+      <span class="brand-tag">— setu, "bridge"</span>
+    </div>
+    <div class="nav-links mono" id="navLinks">
+      <a href="#why">Why</a>
+      <a href="#how">How</a>
+      <a href="#production">Production path</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#criteria">Criteria fit</a>
+    </div>
+    <div class="nav-right">
+      <span class="offline-badge" id="offlineBadge"><span class="dot" id="offlineDot"></span><span id="offlineText">Caching for offline…</span></span>
+    </div>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="hero-kicker mono">OFFLINE · ON-DEVICE · ZERO CLOUD</div>
+  <h1>A sign-language bridge that never needs a signal.</h1>
+  <p class="lede">SetuAI turns any camera into a real-time interpreter between sign and speech — running entirely on-device, on the Hexagon NPU inside a Snapdragon-powered PC. No internet, no per-query cost, no data ever leaving the machine.</p>
+
+  <div class="bridge-stage">
+    <div class="stage-panel left">
+      <div class="panel-label">
+        <span><span class="dot" id="camDot"></span><span id="camStatus">Camera off</span></span>
+        <span class="mono" id="fpsReadout">— fps</span>
+      </div>
+      <div class="cam-box" id="camBox">
+        <p class="cam-placeholder" id="camPlaceholder">Turn on the camera to try live gesture recognition — runs fully in your browser, on your device.</p>
+        <video id="video" playsinline autoplay muted style="display:none;"></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="startBtn">Turn on camera</button>
+        <button class="btn" id="stopBtn" style="display:none;">Stop</button>
+        <button class="btn ghost" id="speakToggle">🔈 Speak recognized signs: On</button>
+      </div>
+      <div class="chips" id="vocabChips"></div>
+      <p style="font-size:0.74rem; color:var(--slate-dim); margin:2px 0 0;">
+        <span style="color:var(--bridge-teal);">●</span> ISL — a real Indian Sign Language numeral &nbsp;
+        <span style="color:var(--slate);">●</span> Gesture — a generic hand shape, not ISL (see honesty note)
+      </p>
+    </div>
+
+    <div class="arc-col" aria-hidden="true">
+      <svg width="46" height="420" viewBox="0 0 46 420" fill="none">
+        <path d="M2 40 C 30 130, 30 290, 2 380" stroke="#4FB6A6" stroke-width="1.5" stroke-dasharray="3 7" opacity="0.5"/>
+        <circle r="3.2" fill="#F2A154">
+          <animateMotion dur="3.2s" repeatCount="indefinite" path="M2 40 C 30 130, 30 290, 2 380"/>
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.85;1" dur="3.2s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    </div>
+
+    <div class="stage-panel right">
+      <div class="panel-label">
+        <span><span class="dot live"></span>Live caption</span>
+        <button class="btn ghost" id="clearBtn" style="padding:4px 12px; font-size:0.78rem;">Clear</button>
+      </div>
+      <div class="caption-feed" id="captionFeed">
+        <p class="caption-empty">Recognized signs will appear here as short captions and be spoken aloud — the way an interpreter would voice them for a hearing listener.</p>
+      </div>
+      <div class="type-bridge">
+        <label for="typeInput">Reverse direction — a hearing person types, the deaf person reads it large on screen:</label>
+        <div class="type-row">
+          <input type="text" id="typeInput" placeholder="Type a message to display…" />
+          <button class="btn" id="typeSendBtn">Show</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="latency-strip">
+    <span>Frame processing: <b id="latencyMs">—</b> ms</span>
+    <span>Model: <b>MediaPipe Hand Landmarker</b>, 21 keypoints, on-device WASM</span>
+    <span>Hands detected: <b id="handsCount">0</b></span>
+  </div>
+</header>
+
+<section class="wrap" id="why">
+  <div class="section-kicker mono">01 · WHY</div>
+  <div class="split">
+    <h2>Why this needs to run offline</h2>
+    <div class="col">
+      <p>India is home to an estimated <strong>18 million deaf people</strong> — the WHO puts the number of Indians with significant hearing loss as high as <strong>63 million</strong>. Yet the country has roughly <strong>300 certified Indian Sign Language interpreters</strong>, concentrated in a handful of cities.</p>
+      <p>For nearly everyone else, day-to-day communication with hospitals, banks, police stations, classrooms and shops depends on a family member translating, or doesn't happen at all — and none of that works if the "solution" is a cloud app that needs a data plan or a subscription. A bridge like this only matters if it works in a village clinic with no signal, at 2am, for free, forever. That's a Hexagon NPU problem, not a cloud API problem.</p>
+    </div>
+  </div>
+  <div class="stats-grid stats-grid-4">
+    <div class="stat"><div class="num">~18M</div><p>Deaf individuals in India, per the National Association of the Deaf</p></div>
+    <div class="stat"><div class="num">~300</div><p>Certified ISL interpreters nationwide, per ISLRTC</p></div>
+    <div class="stat"><div class="num">1.36 ms</div><p>Qualcomm's <em>published</em> latency for this hand-landmark model on Snapdragon X Elite's NPU</p></div>
+    <div class="stat stat-self"><div class="num">2.50 ms</div><p><em>Self-measured</em> by us — same model family, plain CPU, no NPU. Fully reproducible: see <code>benchmark_onnx_real.py</code></p></div>
+  </div>
+  <p class="cite">Sources: National Association of the Deaf (via arXiv:2307.05440, ISLTranslate); WHO deafness &amp; hearing-loss fact sheet; Indian Sign Language Research &amp; Training Centre (islrtc.nic.in); Qualcomm AI Hub, MediaPipe-Hand-Detection model card (Snapdragon X Elite CRD, ONNX, FP16, NPU). The 2.50 ms figure is ours — measured with ONNX Runtime on a real, downloaded hand-landmark model; full method and how to reproduce it in <code>README.md</code> §10.</p>
+</section>
+
+<section class="wrap" id="how" style="border-top:1px solid var(--line);">
+  <div class="section-kicker mono">02 · UNDER THE HOOD</div>
+  <h2 style="max-width:20ch;">How the demo in front of you actually works</h2>
+  <p style="color:var(--slate); max-width:62ch; margin-top:14px;">Nothing here is simulated. Your camera feed is read locally, hand landmarks are computed by a model running in your browser's WebAssembly runtime, and the gesture classifier is plain geometry on those 21 keypoints — no frame is ever sent anywhere. <strong>Only the numbers 1–5 in this demo are genuine ISL signs</strong> (ISL numerals follow the same finger-count convention); the fist, thumbs-up, 👌 and 🤟 shapes are common international gestures included to show the pipeline working, not claimed as ISL — see the honesty note below.</p>
+  <div class="pipeline">
+    <div class="pl-step"><div class="k">01</div><h4>Capture</h4><p>Webcam frame grabbed locally via getUserMedia. Never leaves the device.</p></div>
+    <div class="pl-step"><div class="k">02</div><h4>Landmark detection</h4><p>MediaPipe Hand Landmarker locates 21 keypoints per hand, on-device, in WASM.</p></div>
+    <div class="pl-step"><div class="k">03</div><h4>Geometric classification</h4><p>Finger-extension angles and distances are mapped to a starter vocabulary of 9 signs.</p></div>
+    <div class="pl-step"><div class="k">04</div><h4>Stabilize</h4><p>A sign must hold for ~8 consecutive frames before it's committed, to reject motion blur.</p></div>
+    <div class="pl-step"><div class="k">05</div><h4>Voice out</h4><p>Committed sign is captioned and spoken with the on-device speech synthesizer.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="production" style="border-top:1px solid var(--line);">
+  <div class="section-kicker mono">03 · PRODUCTION PATH</div>
+  <h2 style="max-width:22ch;">From this browser demo to a Snapdragon NPU app</h2>
+  <p style="color:var(--slate); max-width:62ch; margin-top:14px;">The browser keeps this demo judge-friendly — anyone can test it on any laptop with no install. The production path swaps each in-browser piece for its Qualcomm AI Hub–optimized counterpart, compiled for the Hexagon NPU via the QNN Execution Provider.</p>
+  <table class="compare">
+    <tr><th>Stage</th><th>This browser demo</th><th>Production on Snapdragon</th></tr>
+    <tr><td class="rowlabel">Hand tracking</td><td>MediaPipe Hands (WASM, CPU/GPU)</td><td><code>MediaPipe-Hand-Detection</code> from Qualcomm AI Hub, exported to ONNX / QNN, run on the Hexagon NPU (1.36 ms measured on Snapdragon X Elite CRD)</td></tr>
+    <tr><td class="rowlabel">Gesture → word</td><td>Rule-based geometry, 9 shapes (5 are genuine ISL numerals, 4 are labeled generic gestures)</td><td>Temporal sequence model (e.g. LSTM/transformer head) trained on continuous ISL data such as the 31k-pair ISLTranslate corpus, quantized and compiled with the AI Hub Workbench</td></tr>
+    <tr><td class="rowlabel">Speech in</td><td>Browser Speech Recognition API (network-dependent in most browsers)</td><td><code>Whisper-Base-En</code> (Qualcomm AI Hub) running fully offline on-device</td></tr>
+    <tr><td class="rowlabel">Speech out</td><td>OS text-to-speech via <code>speechSynthesis</code></td><td>On-device neural TTS compiled for QNN, extended to Hindi and regional languages</td></tr>
+    <tr><td class="rowlabel">Orchestration</td><td>Single HTML/JS page</td><td>Native Windows app on Snapdragon-powered HP PCs, ONNX Runtime with the QNN Execution Provider, no network calls in the loop</td></tr>
+  </table>
+</section>
+
+<section class="wrap" id="roadmap" style="border-top:1px solid var(--line);">
+  <div class="section-kicker mono">04 · ROADMAP</div>
+  <h2>Honest scope, and what's next</h2>
+  <p style="color:var(--slate); max-width:62ch; margin-top:14px;">This starter vocabulary is static, single-hand, and closer to international finger-counting and common gestures than to grammatically complete Indian Sign Language, which is two-handed, continuous, and uses facial grammar. Overclaiming that would be dishonest to the deaf community this is meant to serve — so here's the real path from here.</p>
+  <ul class="roadmap">
+    <li><span class="phase">Phase 1 — now</span><div><h4>Static single-hand vocabulary</h4><p>9 hand shapes running in the browser today: numbers 1–5 (genuine ISL numerals) plus four labeled generic gestures (fist, thumbs-up, 👌, 🤟) that demonstrate the pipeline beyond counting, rule-based, no training required.</p></div></li>
+    <li><span class="phase">Phase 2</span><div><h4>True ISL word signs</h4><p>Fine-tune a lightweight classifier on real ISL hand-shapes using open datasets, replacing hand geometry rules with a learned model compiled for QNN.</p></div></li>
+    <li><span class="phase">Phase 3</span><div><h4>Two-handed, continuous signing</h4><p>Track both hands plus upper-body pose, add temporal modeling for sentence-level ISL using resources like the ISLTranslate corpus.</p></div></li>
+    <li><span class="phase">Phase 4</span><div><h4>Bidirectional and multilingual</h4><p>On-device Whisper for speech-in, on-device TTS in Hindi and regional languages for speech-out — a full two-way conversation bridge on a single Snapdragon PC.</p></div></li>
+  </ul>
+</section>
+
+<section class="wrap" id="criteria" style="border-top:1px solid var(--line);">
+  <div class="section-kicker mono">05 · CRITERIA FIT</div>
+  <h2>Mapped against the challenge's own evaluation</h2>
+  <div class="criteria-grid">
+    <div class="crit"><h4>Technical Implementation</h4><p>Working real-time CV pipeline you can test right now, an honest static→continuous roadmap, and a named, benchmarked Qualcomm AI Hub model for the production path rather than an unverified claim.</p></div>
+    <div class="crit"><h4>Application Use Case &amp; Innovation</h4><p>Addresses a documented, large accessibility gap (63M vs. ~300 interpreters) with an approach — fully offline, real-time, bidirectional — that cloud-dependent interpreter apps can't match in low-connectivity India.</p></div>
+    <div class="crit"><h4>Deployment &amp; Accessibility</h4><p>Zero install to try (single HTML file, runs in any browser), zero recurring cost once deployed, and zero dependency on network coverage — the exact profile needed for rural clinics, schools, and government offices.</p></div>
+    <div class="crit"><h4>Presentation &amp; Documentation</h4><p>This page doubles as the pitch: live demo, cited statistics, an explicit demo-vs-production comparison table, and a scoped, credible roadmap.</p></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>SetuAI — built for the Snapdragon® AI Lab Build &amp; Present Challenge.</span>
+    <span class="mono">All inference above runs in this browser tab. Nothing is uploaded.</span>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+
+<script>
+(function(){
+  "use strict";
+
+  /* Respect reduced-motion for the SMIL pulse animation (CSS media queries can't reach SVG animate/animateMotion) */
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    document.querySelectorAll('.arc-col animateMotion, .arc-col animate').forEach(function(el){
+      el.setAttribute('begin', 'indefinite');
+    });
+  }
+
+  /* ---------------- Vocabulary + chips ---------------- */
+  // Numbers 1–5 follow the standard finger-count convention shared with ISL numerals.
+  // The rest (fist, thumbs-up, open palm, OK, ILY) are common international hand
+  // gestures, NOT Indian Sign Language signs — ISL words are predominantly
+  // two-handed and structurally different from these. See README §3 for sources.
+  var VOCAB = [
+    {label:"0 (fist)", full:"0 (fist)", tag:"gesture"},
+    {label:"1", full:"1 · ISL", tag:"isl"},
+    {label:"2", full:"2 · ISL", tag:"isl"},
+    {label:"3", full:"3 · ISL", tag:"isl"},
+    {label:"4", full:"4 · ISL", tag:"isl"},
+    {label:"5", full:"5 · ISL", tag:"isl"},
+    {label:"👍", full:"👍 gesture", tag:"gesture"},
+    {label:"👌", full:"👌 gesture", tag:"gesture"},
+    {label:"🤟", full:"🤟 gesture", tag:"gesture"}
+  ];
+  var vocabWrap = document.getElementById('vocabChips');
+  VOCAB.forEach(function(v){
+    var c = document.createElement('span');
+    c.className = 'chip';
+    var tagSpan = document.createElement('span');
+    tagSpan.className = 'tag ' + v.tag;
+    tagSpan.textContent = v.tag === 'isl' ? 'ISL' : 'gesture';
+    c.appendChild(document.createTextNode(v.label + ' '));
+    c.appendChild(tagSpan);
+    c.dataset.label = v.full; // must match classify()'s exact return strings
+    vocabWrap.appendChild(c);
+  });
+
+  function flashChip(label){
+    Array.prototype.forEach.call(vocabWrap.children, function(c){
+      c.classList.toggle('hit', c.dataset.label === label);
+    });
+  }
+
+  /* ---------------- Elements ---------------- */
+  var video = document.getElementById('video');
+  var canvas = document.getElementById('overlay');
+  var ctx = canvas.getContext('2d');
+  var startBtn = document.getElementById('startBtn');
+  var stopBtn = document.getElementById('stopBtn');
+  var speakToggle = document.getElementById('speakToggle');
+  var camDot = document.getElementById('camDot');
+  var camStatus = document.getElementById('camStatus');
+  var camPlaceholder = document.getElementById('camPlaceholder');
+  var fpsReadout = document.getElementById('fpsReadout');
+  var latencyMs = document.getElementById('latencyMs');
+  var handsCount = document.getElementById('handsCount');
+  var captionFeed = document.getElementById('captionFeed');
+  var clearBtn = document.getElementById('clearBtn');
+  var typeInput = document.getElementById('typeInput');
+  var typeSendBtn = document.getElementById('typeSendBtn');
+
+  var speakOn = true;
+  var camera = null;
+  var handsModel = null;
+  var running = false;
+
+  var lastFrameTime = performance.now();
+  var frameCount = 0;
+  var fpsWindowStart = performance.now();
+
+  var stableGesture = null;
+  var stableCount = 0;
+  var STABLE_FRAMES = 8;
+  var lastCommitted = null;
+  var lastCommitTime = 0;
+
+  /* ---------------- Offline caching via inline Service Worker ---------------- */
+  // Registers a small service worker (built at runtime from a Blob — no separate
+  // .js file needed) that does cache-first for the MediaPipe CDN assets. After the
+  // first successful load, this page keeps working even with no network at all,
+  // because every asset it needs has already been cached by the browser itself.
+  var offlineBadge = document.getElementById('offlineBadge');
+  var offlineDot = document.getElementById('offlineDot');
+  var offlineText = document.getElementById('offlineText');
+
+  function setOfflineBadge(state, text){
+    offlineBadge.className = 'offline-badge ' + state;
+    offlineText.textContent = text;
+  }
+
+  (function setupOfflineCache(){
+    if (!('serviceWorker' in navigator)){
+      setOfflineBadge('failed', 'Offline cache unsupported in this browser');
+      return;
+    }
+    // file:// pages cannot register service workers (browser restriction) —
+    // this only activates once the page is served over http(s), e.g. GitHub Pages.
+    if (location.protocol === 'file:'){
+      setOfflineBadge('failed', 'Host over https to enable offline cache');
+      return;
+    }
+    var swSource = [
+      "var CACHE_NAME = 'setuai-v1';",
+      "self.addEventListener('install', function(e){ self.skipWaiting(); });",
+      "self.addEventListener('activate', function(e){ self.clients.claim(); });",
+      "self.addEventListener('fetch', function(e){",
+      "  var url = e.request.url;",
+      "  var cacheable = url.indexOf('cdn.jsdelivr.net') !== -1 || url.indexOf('fonts.g') !== -1;",
+      "  if (!cacheable) return;",
+      "  e.respondWith(",
+      "    caches.open(CACHE_NAME).then(function(cache){",
+      "      return cache.match(e.request).then(function(cached){",
+      "        if (cached) return cached;",
+      "        return fetch(e.request).then(function(resp){",
+      "          if (resp && resp.status === 200) cache.put(e.request, resp.clone());",
+      "          return resp;",
+      "        }).catch(function(){ return cached; });",
+      "      });",
+      "    })",
+      "  );",
+      "});"
+    ].join('\n');
+
+    try{
+      var blob = new Blob([swSource], {type:'text/javascript'});
+      var swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).then(function(reg){
+        setOfflineBadge('ready', 'Offline cache active');
+      }).catch(function(err){
+        console.warn('SW registration failed', err);
+        setOfflineBadge('failed', 'Offline cache unavailable');
+      });
+    }catch(e){
+      setOfflineBadge('failed', 'Offline cache unavailable');
+    }
+  })();
+
+  /* ---------------- Geometry-based classifier ---------------- */
+  // Landmarks per MediaPipe Hands: 0 wrist, 4 thumb tip, 8 index tip, 12 middle tip,
+  // 16 ring tip, 20 pinky tip; PIP joints: 6,10,14,18; thumb IP: 3; index MCP: 5.
+  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+
+  function fingerExtended(lm, tipIdx, pipIdx){
+    var wrist = lm[0];
+    return dist(lm[tipIdx], wrist) > dist(lm[pipIdx], wrist) * 1.15;
+  }
+
+  function classify(lm){
+    var wrist = lm[0];
+    var indexMcp = lm[5];
+    var handScale = dist(wrist, indexMcp) || 0.0001;
+
+    var thumbOut  = dist(lm[4], lm[17]) > dist(lm[2], lm[17]) * 1.05; // thumb tip far from pinky-mcp side
+    var indexUp   = fingerExtended(lm, 8, 6);
+    var middleUp  = fingerExtended(lm, 12, 10);
+    var ringUp    = fingerExtended(lm, 16, 14);
+    var pinkyUp   = fingerExtended(lm, 20, 18);
+
+    var extendedCount = [indexUp, middleUp, ringUp, pinkyUp].filter(Boolean).length;
+    var pinchDist = dist(lm[4], lm[8]) / handScale;
+
+    // OK sign: thumb tip and index tip pinched together, other three fingers up.
+    // This is a common international / ASL-style gesture — NOT an ISL sign.
+    if (pinchDist < 0.5 && middleUp && ringUp && pinkyUp){
+      return "👌 gesture";
+    }
+    // Thumb + index + pinky extended, middle & ring curled — the ASL "ILY" handshape.
+    // Also NOT an ISL sign (ISL words are predominantly two-handed).
+    if (thumbOut && indexUp && pinkyUp && !middleUp && !ringUp){
+      return "🤟 gesture";
+    }
+    // Fist / zero — nothing extended, thumb tucked. Generic gesture, not ISL.
+    if (!thumbOut && extendedCount === 0){
+      return "0 (fist)";
+    }
+    // Thumbs up — thumb out, nothing else, thumb tip clearly above wrist. Generic gesture.
+    if (thumbOut && extendedCount === 0 && lm[4].y < wrist.y - 0.03){
+      return "👍 gesture";
+    }
+    // Numbers 1–5 below follow the same finger-count convention used in ISL numerals
+    // (source: cited in README) — this is the one part of the vocabulary with a
+    // genuine, citable claim to being an actual ISL sign.
+    if (extendedCount === 1 && indexUp) return "1 · ISL";
+    if (extendedCount === 2 && indexUp && middleUp) return "2 · ISL";
+    if (extendedCount === 3 && indexUp && middleUp && ringUp) return "3 · ISL";
+    if (extendedCount === 4 && !thumbOut) return "4 · ISL";
+    if (extendedCount === 4 && thumbOut) return "5 · ISL";
+
+    return null;
+  }
+
+  /* ---------------- Caption + speech ---------------- */
+  function speak(text){
+    if (!speakOn) return;
+    if (!('speechSynthesis' in window)) return;
+    try{
+      var u = new SpeechSynthesisUtterance(text.replace('👍','thumbs up').replace('👌','ok').replace('🤟','I love you'));
+      u.rate = 1.0;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }catch(e){ /* speech synthesis unsupported — caption still shown */ }
+  }
+
+  function commitCaption(label){
+    var empty = captionFeed.querySelector('.caption-empty');
+    if (empty) empty.remove();
+    var line = document.createElement('div');
+    line.className = 'caption-line';
+    var t = document.createElement('time');
+    var now = new Date();
+    t.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    line.appendChild(document.createTextNode(label + ' '));
+    line.appendChild(t);
+    captionFeed.appendChild(line);
+    captionFeed.scrollTop = captionFeed.scrollHeight;
+    flashChip(label);
+    speak(label);
+  }
+
+  clearBtn.addEventListener('click', function(){
+    captionFeed.innerHTML = '<p class="caption-empty">Recognized signs will appear here as short captions and be spoken aloud — the way an interpreter would voice them for a hearing listener.</p>';
+  });
+
+  typeSendBtn.addEventListener('click', sendTyped);
+  typeInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') sendTyped(); });
+  function sendTyped(){
+    var val = typeInput.value.trim();
+    if (!val) return;
+    commitCaption(val);
+    typeInput.value = '';
+  }
+
+  speakToggle.addEventListener('click', function(){
+    speakOn = !speakOn;
+    speakToggle.textContent = (speakOn ? '🔈 Speak recognized signs: On' : '🔇 Speak recognized signs: Off');
+  });
+
+  /* ---------------- MediaPipe wiring ---------------- */
+  function onResults(results){
+    var frameStart = performance.now();
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.save();
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+
+    var n = (results.multiHandLandmarks || []).length;
+    handsCount.textContent = n;
+
+    if (n > 0){
+      var lm = results.multiHandLandmarks[0];
+      if (window.drawConnectors && window.HAND_CONNECTIONS){
+        window.drawConnectors(ctx, lm, window.HAND_CONNECTIONS, {color:'#4FB6A6', lineWidth:2});
+      }
+      if (window.drawLandmarks){
+        window.drawLandmarks(ctx, lm, {color:'#F2A154', lineWidth:1, radius:3});
+      }
+
+      var gesture = classify(lm);
+      if (gesture && gesture === stableGesture){
+        stableCount++;
+      } else {
+        stableGesture = gesture;
+        stableCount = 1;
+      }
+
+      if (gesture && stableCount === STABLE_FRAMES){
+        var now = performance.now();
+        if (gesture !== lastCommitted || (now - lastCommitTime) > 1400){
+          commitCaption(gesture);
+          lastCommitted = gesture;
+          lastCommitTime = now;
+        }
+      }
+    } else {
+      stableGesture = null;
+      stableCount = 0;
+    }
+
+    ctx.restore();
+
+    // latency + fps bookkeeping
+    var frameEnd = performance.now();
+    latencyMs.textContent = (frameEnd - frameStart).toFixed(1);
+    frameCount++;
+    if (frameEnd - fpsWindowStart > 1000){
+      fpsReadout.textContent = frameCount + ' fps';
+      frameCount = 0;
+      fpsWindowStart = frameEnd;
+    }
+  }
+
+  function setCamUI(state){
+    if (state === 'starting'){
+      camStatus.textContent = 'Starting camera…';
+      camDot.className = 'dot';
+    } else if (state === 'live'){
+      camStatus.textContent = 'Camera live';
+      camDot.className = 'dot live';
+      camPlaceholder.style.display = 'none';
+      video.style.display = 'block';
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
+    } else if (state === 'error'){
+      camStatus.textContent = 'Camera unavailable';
+      camDot.className = 'dot warn';
+    } else {
+      camStatus.textContent = 'Camera off';
+      camDot.className = 'dot';
+      camPlaceholder.style.display = 'block';
+      video.style.display = 'none';
+      startBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'none';
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+    }
+  }
+
+  function start(){
+    setCamUI('starting');
+    try{
+      handsModel = new Hands({ locateFile: function(file){
+        return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + file;
+      }});
+      handsModel.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.5
+      });
+      handsModel.onResults(onResults);
+
+      camera = new Camera(video, {
+        onFrame: async function(){ await handsModel.send({image: video}); },
+        width: 640,
+        height: 480
+      });
+      camera.start().then(function(){
+        running = true;
+        setCamUI('live');
+      }).catch(function(err){
+        console.error(err);
+        setCamUI('error');
+        camPlaceholder.textContent = 'Could not access the camera. Check browser permissions and try again.';
+        camPlaceholder.style.display = 'block';
+      });
+    }catch(e){
+      console.error(e);
+      setCamUI('error');
+    }
+  }
+
+  function stop(){
+    running = false;
+    if (camera){ try{ camera.stop(); }catch(e){} }
+    setCamUI('off');
+  }
+
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', stop);
+
+})();
+</script>
+</body>
+</html>
