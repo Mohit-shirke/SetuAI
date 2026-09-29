@@ -3,6 +3,8 @@
 
 *"Setu" is Hindi/Sanskrit for **bridge**. This is a bridge between silence and speech that never needs a signal.*
 
+**Live demo:** [SetuAI on GitHub Pages](https://mohit-shirke.github.io/SetuAI/) | **Source code:** [Mohit-shirke/SetuAI](https://github.com/Mohit-shirke/SetuAI)
+
 ---
 
 ## 1. The problem
@@ -100,15 +102,7 @@ Most existing Indian sign-language tools fall into one of two buckets: (a) **vid
 6. **To verify the offline claim:** after the page has fully loaded once, open DevTools → Network tab → set to "Offline," then reload the page. It should still load and the camera demo should still work — because every asset it needs was cached by the service worker on the first visit.
 
 ### Deploying a live link (recommended for submission)
-```bash
-# Quickest option — GitHub Pages
-git init && git add index.html README.md
-git commit -m "SetuAI submission"
-git branch -M main
-git remote add origin <your-repo-url>
-git push -u origin main
-# then enable GitHub Pages on the repo (Settings → Pages → deploy from main)
-```
+GitHub Pages is configured to publish the `main` branch from the repository root. Pushing changes to `main` updates the demo at the live link above after GitHub finishes building the site.
 
 ## 10. A real, self-measured benchmark — with the full honest story of getting there
 
